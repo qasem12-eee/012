@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>رفع منتج</title>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+    font-family: Tahoma, Arial;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+}
+
+.upload-form {
+    max-width: 420px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,.1);
+}
+
+.upload-form h2 {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.upload-form input,
+.upload-form button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.upload-form button {
+    background: #28a745;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+}
+
+.upload-form button:hover {
+    background: #218838;
+}
+
+#preview {
+    display: none;
+    max-width: 100%;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="upload-form">
+    <h2>إضافة منتج جديد</h2>
+
+    <form id="productForm">
+        <input type="text" id="title" placeholder="اسم المنتج" required>
+        <input type="number" id="price" placeholder="السعر" required>
+        <input type="file" id="image" accept="image/*" required>
+
+        <img id="preview">
+
+        <button type="submit">رفع المنتج</button>
+    </form>
+</div>
+
+<script>
+/* بيانات Supabase */
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0bWxvZmJ5dG12Y3RoZnJjYmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4MDcxNjAsImV4cCI6MjA4NTM4MzE2MH0.RG7xYKN0ld3wN8hQznjqLHBXLohlQDTIYX9nLgU00GU";
+
+/* إنشاء العميل */
+const supabaseClient = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+);
+
+/* عناصر الصفحة */
+const form = document.getElementById('productForm');
+const imageInput = document.getElementById('image');
+const preview = document.getElementById('preview');
+
+/* معاينة الصورة */
+imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+    }
+});
+
+/* رفع المنتج */
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('title').value.trim();
+    const price = document.getElementById('price').value;
+    const file = imageInput.files[0];
+
+    if (!title || !price || !file) {
+        alert('يرجى تعبئة جميع الحقول');
+        return;
+    }
+
+    try {
+        /* اسم فريد للصورة */
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        /* رفع الصورة */
+        const { error: uploadError } = await supabaseClient
+            .storage
+            .from('market')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        /* رابط الصورة */
+        const { data: urlData } = supabaseClient
+            .storage
+            .from('market')
+            .getPublicUrl(filePath);
+
+        const image_url = urlData.publicUrl;
+
+        /* حفظ البيانات في الجدول */
+        const { error: insertError } = await supabaseClient
+            .from('Qasem')
+            .insert({
+                title: title,
+                price: price,
+                image_url: image_url
+            });
+
+        if (insertError) throw insertError;
+
+        alert('تم رفع المنتج بنجاح ✅');
+        form.reset();
+        preview.style.display = 'none';
+
+    } catch (err) {
+        console.error(err);
+        alert('حدث خطأ أثناء الرفع ❌');
+    }
+});
+</script>
+
+</body>
+</html>
